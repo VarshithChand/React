@@ -5,7 +5,6 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# ✅ IMPORTANT: container name = db
 app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:150711@db:5432/new"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -21,12 +20,18 @@ class User(db.Model):
     email = db.Column(db.String(150))
     contact = db.Column(db.String(20))
 
-# ✅ HEALTH CHECK
+
+# ✅ CREATE TABLES ALWAYS (IMPORTANT FIX)
+with app.app_context():
+    db.create_all()
+
+
+# ✅ ROUTES
 @app.route("/")
 def home():
     return "Flask API Running 🚀"
 
-# ✅ GET USERS
+
 @app.route("/users", methods=["GET"])
 def get_users():
     try:
@@ -43,15 +48,11 @@ def get_users():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ✅ ADD USER
+
 @app.route("/users", methods=["POST"])
 def add_user():
     try:
         data = request.json
-
-        # basic validation
-        if not data or not data.get("first_name") or not data.get("email"):
-            return jsonify({"error": "Missing required fields"}), 400
 
         user = User(
             first_name=data.get("first_name"),
@@ -63,13 +64,13 @@ def add_user():
         db.session.add(user)
         db.session.commit()
 
-        return jsonify({"message": "User added successfully"}), 201
+        return jsonify({"message": "User added"}), 201
 
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-# ✅ DELETE USER
+
 @app.route("/users/<int:id>", methods=["DELETE"])
 def delete_user(id):
     try:
@@ -81,15 +82,8 @@ def delete_user(id):
         db.session.delete(user)
         db.session.commit()
 
-        return jsonify({"message": "User deleted"})
+        return jsonify({"message": "Deleted"})
     
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
-
-# ✅ CREATE TABLES (AUTO RUN)
-if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()   # ⚠️ only create, NOT drop
-    app.run(host="0.0.0.0", port=5000)
