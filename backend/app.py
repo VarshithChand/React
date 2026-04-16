@@ -1,19 +1,17 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-import time
-from sqlalchemy.exc import OperationalError
 
 app = Flask(__name__)
 CORS(app)
 
-# ✅ Docker DB connection
-app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:150711@postgres_db:5432/new"
+# ✅ IMPORTANT: container name = db
+app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:150711@db:5432/new"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# ✅ Model
+# ✅ MODEL
 class User(db.Model):
     __tablename__ = "users"
 
@@ -23,70 +21,75 @@ class User(db.Model):
     email = db.Column(db.String(150))
     contact = db.Column(db.String(20))
 
-# ✅ Create tables safely (IMPORTANT FIX)
-def init_db():
-    with app.app_context():
-        for i in range(10):
-            try:
-                db.create_all()
-                print("✅ Tables created")
-                break
-            except OperationalError:
-                print("⏳ Waiting for DB...")
-                time.sleep(3)
-
-init_db()
-
-# ✅ Routes
-
+# ✅ HEALTH CHECK
 @app.route("/")
 def home():
     return "Flask API Running 🚀"
 
-# GET users
+# ✅ GET USERS
 @app.route("/users", methods=["GET"])
 def get_users():
-    users = User.query.all()
-    return jsonify([
-        {
-            "id": u.id,
-            "first_name": u.first_name,
-            "last_name": u.last_name,
-            "email": u.email,
-            "contact": u.contact
-        } for u in users
-    ])
+    try:
+        users = User.query.all()
+        return jsonify([
+            {
+                "id": u.id,
+                "first_name": u.first_name,
+                "last_name": u.last_name,
+                "email": u.email,
+                "contact": u.contact
+            } for u in users
+        ])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-# POST user
+# ✅ ADD USER
 @app.route("/users", methods=["POST"])
 def add_user():
-    data = request.json
+    try:
+        data = request.json
 
-    user = User(
-        first_name=data.get("first_name"),
-        last_name=data.get("last_name"),
-        email=data.get("email"),
-        contact=data.get("contact")
-    )
+        # basic validation
+        if not data or not data.get("first_name") or not data.get("email"):
+            return jsonify({"error": "Missing required fields"}), 400
 
-    db.session.add(user)
-    db.session.commit()
+        user = User(
+            first_name=data.get("first_name"),
+            last_name=data.get("last_name"),
+            email=data.get("email"),
+            contact=data.get("contact")
+        )
 
-    return jsonify({"message": "User added"})
+        db.session.add(user)
+        db.session.commit()
 
-# DELETE user
+        return jsonify({"message": "User added successfully"}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+# ✅ DELETE USER
 @app.route("/users/<int:id>", methods=["DELETE"])
 def delete_user(id):
-    user = User.query.get(id)
+    try:
+        user = User.query.get(id)
 
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+        if not user:
+            return jsonify({"error": "User not found"}), 404
 
-    db.session.delete(user)
-    db.session.commit()
+        db.session.delete(user)
+        db.session.commit()
 
-    return jsonify({"message": "Deleted"})
+        return jsonify({"message": "User deleted"})
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
-# ✅ For local testing only (Gunicorn ignores this)
+
+# ✅ CREATE TABLES (AUTO RUN)
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    with app.app_context():
+        db.create_all()   # ⚠️ only create, NOT drop
+    app.run(host="0.0.0.0", port=5000)
