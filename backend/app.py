@@ -8,7 +8,7 @@ app = Flask(__name__)
 CORS(app)
 
 # ✅ Docker DB connection
-app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:150711@db:5432/new"
+app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:150711@postgres_db:5432/new"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
