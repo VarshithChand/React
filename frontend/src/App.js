@@ -10,7 +10,7 @@ function App() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const API = "http://backend:5000";
+  const API = "http://host.docker.internal:5000";
 
   const fetchUsers = async () => {
     try {
