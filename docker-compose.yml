@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 150711
+      POSTGRES_DB: new
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    container_name: flask_backend
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://postgres:150711@db:5432/new
+    ports:
+      - "5000:5000"
+
+  frontend:
+    build: ./frontend
+    container_name: react_frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
